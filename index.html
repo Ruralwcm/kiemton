@@ -33,11 +33,11 @@ body{
 
 /* Card */
 .card{
-  background:var(--card);border-radius:14px;padding:18px;margin-top:14px;
+  background:var(--card);border-radius:14px;padding:14px;margin-top:14px;
   box-shadow:0 2px 10px rgba(20,30,60,.06);border:1px solid var(--line);
 }
-.card h2{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.card h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:2px}
+.card h2{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.card h2 .dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:1px}
 
 /* Form elements */
 label{font-size:11.5px;font-weight:600;color:var(--mut);display:block;margin:10px 0 5px}
@@ -53,10 +53,14 @@ input:focus,select:focus{border-color:var(--navy);background:#fff}
 .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;background:#fef3c7;color:#92400e}
 .pill.blue{background:#eef2ff;color:var(--navy)}
 
-/* Warnings */
+/* Warnings — compact inline */
 .warn{
-  background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;
-  padding:9px 12px;font-size:12px;color:#92400e;margin:6px 0;font-weight:500;
+  font-size:11px;color:#b45309;font-weight:500;
+  display:inline-flex;align-items:center;gap:3px
+}
+.warn-block{
+  background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;
+  padding:6px 9px;font-size:11px;color:#92400e;margin:4px 0;font-weight:500;
 }
 .err{
   background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;
@@ -64,13 +68,20 @@ input:focus,select:focus{border-color:var(--navy);background:#fff}
 }
 .okMsg{color:var(--green);font-size:12px;margin:6px 0;font-weight:600}
 
-/* Lot / product row */
-.prod{border-top:1px dashed var(--line);padding-top:14px;margin-top:14px}
-.prod .pname{font-weight:800;font-size:14px;color:var(--txt);margin-bottom:4px}
-.lot{border:1px dashed var(--line);border-radius:12px;padding:12px;margin:8px 0;background:#fafcfd}
-.lot .row{display:flex;gap:8px}
-.lot .row>div{flex:1;min-width:0}
-.lot .lotwarn{margin-top:6px}
+/* Product row — compact */
+.prod{border-top:1px solid var(--line);padding:6px 0;margin:0}
+.prod:first-child{border-top:none}
+.prod-head{display:flex;align-items:flex-start;gap:4px;flex-wrap:wrap;cursor:default}
+.prod-head .pcode{font-size:10.5px;font-weight:700;color:var(--mut);white-space:nowrap}
+.prod-head .pname{font-size:12px;font-weight:700;color:var(--txt);flex:1;min-width:0;line-height:1.3}
+.prod-head .pills{display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap}
+.prod-head .pill{font-size:10px;padding:2px 7px}
+/* Inline lot row */
+.lot{display:flex;align-items:center;gap:6px;margin:3px 0 0;flex-wrap:wrap}
+.lot input.sl{width:68px;font-size:13px;padding:5px 7px;text-align:center}
+.lot input.hsd{width:110px;font-size:13px;padding:5px 7px;text-align:center}
+.lot .btn-addlot{font-size:16px;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;line-height:1}
+.lot .lotwarn{font-size:10.5px;width:100%;color:#b45309}
 
 /* Buttons */
 .btn{
@@ -269,18 +280,23 @@ function renderProducts() {
   const ma = String(chInfo.MaCH);
   const prods = DULIEU.filter(r => String(r.MaCH)===ma && String(r.DotID)===curDotId);
   $('cardProd').style.display = 'block';
-  if (!prods.length) { box.innerHTML = '<div class="warn">Đợt này chưa có hàng cần kiểm.</div>'; return; }
+  if (!prods.length) { box.innerHTML = '<div class="warn-block">Đợt này chưa có hàng cần kiểm.</div>'; return; }
 
   prods.forEach(p => {
     const d = document.createElement('div');
     d.className = 'prod';
     d.id = 'prod_' + p.MaHang;
     d.innerHTML = `
-      <div class="pname">${esc(p.MaHang||'')} — ${esc(p.TenHang||'')}</div>
-      <span class="pill blue">ĐVT: ${esc(p.DVT||'-')}</span>
-      <span class="pill">Tồn dự kiến: ${esc(p.SL_DuKien||'0')}</span>
+      <div class="prod-head">
+        <span class="pcode">${esc(p.MaHang||'')}</span>
+        <span class="pname">${esc(p.TenHang||'')}</span>
+        <span class="pills">
+          <span class="pill blue">${esc(p.DVT||'-')}</span>
+          <span class="pill">DK:${esc(p.SL_DuKien||'0')}</span>
+          <span class="pill" style="background:#e8f5e9;color:#2e7d32;display:none" class="sum-pill">∑0</span>
+        </span>
+      </div>
       <div class="lot-lists"></div>
-      <button class="btn btn-ghost btn-block" type="button" onclick="addLot('${esc(p.MaHang)}')" style="margin-top:6px">＋ Thêm lô (SL + HSD)</button>
     `;
     box.appendChild(d);
     addLot(p.MaHang);
@@ -292,15 +308,15 @@ function addLot(maHang) {
   const lot = document.createElement('div');
   lot.className = 'lot';
   lot.innerHTML = `
-    <div class="row">
-      <div><label style="margin-top:0">SL thực tế</label><input type="number" class="sl" inputmode="numeric" placeholder="0"></div>
-      <div><label style="margin-top:0">HSD (dd/mm/yyyy)</label><input type="text" class="hsd" placeholder="31/12/2026"></div>
-    </div>
-    <div class="lotwarn"></div>
+    <input type="number" class="sl" inputmode="numeric" placeholder="SL">
+    <input type="text" class="hsd" placeholder="dd/mm/yyyy">
+    <button class="btn-addlot" type="button" title="Thêm lô">＋</button>
+    <span class="lotwarn"></span>
   `;
   listBox.appendChild(lot);
   lot.querySelector('.sl').addEventListener('input', () => checkProd(maHang));
   lot.querySelector('.hsd').addEventListener('input', () => checkProd(maHang));
+  lot.querySelector('.btn-addlot').addEventListener('click', () => addLot(maHang));
   checkProd(maHang);
 }
 
@@ -317,23 +333,28 @@ function checkProd(maHang) {
     const wBox = lot.querySelector('.lotwarn');
     totalSL += sl;
     const w = checkLot(sl, hsd);
-    wBox.innerHTML = w.map(x => '<div class="warn">⚠ ' + x + '</div>').join('');
+    wBox.innerHTML = w.map(x => '⚠' + x).join(' · ');
   });
+  // Update sum pill
+  const sumPill = box.querySelector('.sum-pill');
+  if (sumPill) {
+    if (totalSL > 0) { sumPill.style.display = 'inline-block'; sumPill.textContent = '∑' + totalSL; }
+    else sumPill.style.display = 'none';
+  }
   const dukien = fmt(prod.SL_DuKien)||0;
-  const slBang0 = String(CAIDAT.sl_bang_0)==='on';
-  if (slBang0 && totalSL===0) { /* silent warning via lot itself */ }
   if (dukien>0 && totalSL>0) {
     const lech = Math.abs(totalSL-dukien)/dukien*100;
     const ng = fmt(CAIDAT.sl_lech_pct)||20;
+    const exWarn = box.querySelector('.prod-warn');
     if (lech>ng) {
-      // add a summary warn at top of prod
-      const exWarn = box.querySelector('.prod-warn');
       if (!exWarn) {
         const wd = document.createElement('div');
-        wd.className = 'warn prod-warn';
+        wd.className = 'warn-block prod-warn';
         wd.textContent = '⚠ Tổng SL lệch ' + lech.toFixed(0) + '% so với tồn dự kiến (' + dukien + ')';
-        box.insertBefore(wd, box.querySelector('.lot-lists'));
+        box.appendChild(wd);
       }
+    } else {
+      if (exWarn) exWarn.remove();
     }
   }
   checkSubmitable();
@@ -378,7 +399,7 @@ async function submit() {
     p.querySelectorAll('.lot').forEach(lot => {
       const sl = fmt(lot.querySelector('.sl').value)||0;
       const hsd = lot.querySelector('.hsd').value.trim();
-      if (sl>0||hsd) {
+      if (sl>0) {
         const w = checkLot(sl,hsd);
         lots.push({ MaCH:chInfo.MaCH,MaHang,SL_Lo:sl,HSD:hsd, CanhBao:w.join('; ') });
       }
