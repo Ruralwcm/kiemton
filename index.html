@@ -132,7 +132,7 @@ input:focus,select:focus{border-color:var(--navy);background:#fff}
         <h1>🔍 Kiểm Tồn &amp; Hạn Sử Dụng</h1>
         <p id="sub">WinMart+ Rural · Đang tải...</p>
       </div>
-      <a class="dash-link" href="dashboard.html" target="_blank">📊 Dashboard ↗</a>
+      
     </div>
     <div class="vbadge" id="vb">v1.0</div>
   </div>
@@ -144,11 +144,7 @@ input:focus,select:focus{border-color:var(--navy);background:#fff}
     <select id="selDot"></select>
     <label>Cửa hàng</label>
     <select id="selCh"></select>
-    <div style="margin-top:10px">
-      <button class="btn btn-blue" id="btnGps" type="button">📍 Lấy vị trí GPS</button>
-      <span id="gpsStat" style="font-size:12px;font-weight:600;margin-left:10px;color:var(--mut)"></span>
-    </div>
-    <div class="dist-box info" id="gpsWarn"></div>
+    
   </div>
 
   <!-- Kiểm tồn thực tế -->
@@ -180,7 +176,6 @@ input:focus,select:focus{border-color:var(--navy);background:#fff}
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxM-yFzIPsW-HG3RY5VRICeE04XVLMxZ8RBFYUs_lQqTF2NkDqUrzPmRGOjVIe6UIrbOQ/exec';
 
 let DOTS = [], DULIEU = [], CAIDAT = {};
-let gps = { lat: null, lng: null };
 let chInfo = null;
 let curDotId = '';
 let myKhaiBao = [];
@@ -367,46 +362,6 @@ function checkLot(sl, hsd) {
   return w;
 }
 
-function getGps() {
-  if (!navigator.geolocation) { $('gpsStat').textContent = '⚠ Không hỗ trợ GPS'; return; }
-  $('gpsStat').textContent = 'Đang lấy...';
-  navigator.geolocation.getCurrentPosition(pos => {
-    gps.lat = pos.coords.latitude; gps.lng = pos.coords.longitude;
-    checkGpsDistance();
-  }, () => { $('gpsStat').textContent = '⚠ Không lấy được GPS'; });
-}
-
-function checkGpsDistance() {
-  if (!chInfo||gps.lat==null) return;
-  const clat = fmt(chInfo.Lat), clng = fmt(chInfo.Lng);
-  const max = fmt(CAIDAT.gps_kc_max)||500;
-  const box = $('gpsWarn');
-  if (clat && clng) {
-    const kc = haversine(gps.lat,gps.lng,clat,clng);
-    const km = (kc/1000).toFixed(2);
-    $('gpsStat').textContent = '📏 ' + km + ' km';
-    if (kc>max) {
-      box.innerHTML = '⚠ Khoảng cách ' + km + ' km vượt ngưỡng ' + (max/1000) + ' km — kiểm tra lại vị trí CH';
-      box.className = 'dist-box bad';
-      $('gpsStat').style.color = '#991b1b';
-    } else {
-      box.innerHTML = '✅ Vị trí hợp lệ (' + km + ' km)';
-      box.className = 'dist-box ok';
-      $('gpsStat').style.color = '#065f46';
-    }
-  } else {
-    box.innerHTML = '⚠ CH chưa có tọa độ trong dữ liệu';
-    box.className = 'dist-box info';
-    $('gpsStat').textContent = '(không có tọa độ)';
-  }
-}
-
-function haversine(lat1,lon1,lat2,lon2) {
-  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
 function checkSubmitable() {
   if (!chInfo) { $('btnSubmit').disabled=true; return; }
   const prods = document.querySelectorAll('.prod');
@@ -425,7 +380,7 @@ async function submit() {
       const hsd = lot.querySelector('.hsd').value.trim();
       if (sl>0||hsd) {
         const w = checkLot(sl,hsd);
-        lots.push({ MaCH:chInfo.MaCH,MaHang,SL_Lo:sl,HSD:hsd, Lat:gps.lat,Lng:gps.lng, KcGps:kcMeters(), CanhBao:w.join('; ') });
+        lots.push({ MaCH:chInfo.MaCH,MaHang,SL_Lo:sl,HSD:hsd, CanhBao:w.join('; ') });
       }
     });
   });
@@ -451,13 +406,6 @@ async function submit() {
     showToast('❌ '+String(e), true);
     $('btnSubmit').disabled = false;
   }
-}
-
-function kcMeters() {
-  if (gps.lat==null||!chInfo) return '';
-  const clat=fmt(chInfo.Lat),clng=fmt(chInfo.Lng);
-  if (!clat||!clng) return '';
-  return Math.round(haversine(gps.lat,gps.lng,clat,clng));
 }
 
 function resetForm() {
@@ -511,7 +459,6 @@ function showToast(msg, isErr) {
   setTimeout(() => t.className='toast', 3000);
 }
 
-$('btnGps').addEventListener('click', getGps);
 $('btnSubmit').addEventListener('click', submit);
 load();
 </script>
