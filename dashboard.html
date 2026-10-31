@@ -202,6 +202,12 @@ let DATA = null; // {dots, dulieu, khaibao, caidat}
 const $ = id => document.getElementById(id);
 function fmt(n){ return (n==null||isNaN(n))?'':Number(n); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function parseHSD(s) {
+  const v = String(s||'').trim();
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v);
+  if (!m) return null;
+  return new Date(+m[3], +m[2]-1, +m[1]);
+}
 function toast(m, err){
   const t=$('toast');
   t.textContent=m;
@@ -267,12 +273,47 @@ function renderTienDo(){
   const totCH = chList.length;
   const doneCH = chList.filter(c=>c.done).length;
 
+  // Pcs: unique (MaCH, MaHang) pairs
+  const allPcs = new Set();
+  dl.forEach(r => allPcs.add(String(r.MaCH)+'|'+String(r.MaHang)));
+  const totPcs = allPcs.size;
+
+  // Checked Pcs: unique (MaCH, MaHang) pairs in KHAI_BAO
+  const checkedPcs = new Set();
+  kb.forEach(r => checkedPcs.add(String(r.MaCH)+'|'+String(r.MaHang)));
+  const pcsChecked = checkedPcs.size;
+
+  // Confirmed lots (KHAI_BAO rows with SL > 0)
+  const confirmedLots = kb.filter(r => fmt(r.SL_Lo) > 0);
+  const pcsConfirmed = confirmedLots.length;
+
+  // Tỷ lệ còn tồn = sum(SL_Lo) / sum(SL_DuKien) for checked stores only
+  const checkedCHs = new Set(kb.map(r => String(r.MaCH)));
+  let sumDK = 0, sumTT = 0;
+  dl.forEach(r => {
+    if (checkedCHs.has(String(r.MaCH))) {
+      sumDK += fmt(r.SL_DuKien) || 0;
+    }
+  });
+  kb.forEach(r => { sumTT += fmt(r.SL_Lo) || 0; });
+  const tyLeConTon = sumDK > 0 ? Math.round(sumTT / sumDK * 100) : 0;
+
+  // Pcs hết date: KHAI_BAO rows with expired HSD
+  const today = new Date(); today.setHours(0,0,0,0);
+  let pcsHetDate = 0;
+  kb.forEach(r => {
+    const d = parseHSD(r.HSD);
+    if (d && d < today) pcsHetDate++;
+  });
+
   $('kpi').innerHTML = `
-    <div class="b"><div class="v">${totCH}</div><div class="l">Cửa hàng</div></div>
-    <div class="b"><div class="v">${doneCH}</div><div class="l">Đã kiểm tồn</div></div>
-    <div class="b"><div class="v">${totCH-doneCH}</div><div class="l">Chưa kiểm tồn</div></div>
-    <div class="b"><div class="v">${totCH?Math.round(doneCH/totCH*100):0}%</div><div class="l">Tỷ lệ</div></div>
-    <div class="b"><div class="v">${kb.length}</div><div class="l">Dòng khai báo</div></div>
+    <div class="b"><div class="v">${totCH}</div><div class="l">Số CH</div></div>
+    <div class="b"><div class="v">${doneCH}</div><div class="l">Số đã kiểm</div></div>
+    <div class="b"><div class="v">${totCH?Math.round(doneCH/totCH*100):0}%</div><div class="l">% HT</div></div>
+    <div class="b"><div class="v">${pcsChecked}</div><div class="l">Số Pcs kiểm</div></div>
+    <div class="b"><div class="v">${pcsConfirmed}</div><div class="l">Số Pcs xác nhận</div></div>
+    <div class="b"><div class="v">${tyLeConTon}%</div><div class="l">Tỷ lệ còn tồn</div></div>
+    <div class="b"><div class="v" style="color:${pcsHetDate>0?'var(--red)':'var(--navy)'}">${pcsHetDate}</div><div class="l">Số pcs hết date</div></div>
   `;
 
   // group by GĐV → QLKV
