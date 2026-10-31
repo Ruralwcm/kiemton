@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Kiểm tồn & Hạn sử dụng</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  background: #f2f4f7; color: #1a1a2e; padding-bottom: 90px;
+}
+.header {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  color: #fff; padding: 18px 16px; position: sticky; top: 0; z-index: 10;
+}
+.header h1 { font-size: 18px; font-weight: 700; }
+.header p { font-size: 12px; opacity: .9; margin-top: 3px; }
+.card {
+  background: #fff; margin: 12px 12px; border-radius: 12px;
+  padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.card h2 { font-size: 15px; margin-bottom: 10px; }
+label { font-size: 12px; color: #555; display: block; margin: 8px 0 4px; }
+input, select {
+  width: 100%; padding: 10px; border: 1px solid #d0d5dd;
+  border-radius: 8px; font-size: 15px;
+}
+.btn {
+  display: block; width: 100%; padding: 13px; border: none;
+  border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer;
+  background: #2563eb; color: #fff; margin-top: 8px;
+}
+.btn.ghost { background: #eef2ff; color: #2563eb; }
+.btn:disabled { background: #b9c2d4; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row > * { flex: 1; }
+.pill {
+  display: inline-block; font-size: 12px; padding: 4px 10px; border-radius: 20px;
+  background: #eef2ff; color: #1e3a8a; margin: 2px 0;
+}
+.warn {
+  background: #fff7e6; border: 1px solid #ffd591; border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; color: #ad6800; margin: 6px 0;
+}
+.err {
+  background: #fff1f0; border: 1px solid #ffa39e; border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; color: #cf1322; margin: 6px 0;
+}
+.okMsg { color: #1e8e3e; font-size: 13px; margin: 6px 0; }
+.gps { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.gps .stat { font-size: 13px; color: #1e8e3e; font-weight: 600; }
+.deg { font-size: 14px; font-weight: 600; }
+.lot { border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px; margin: 8px 0; background: #fafbfc; }
+.prod { border-top: 1px solid #eef1f5; padding-top: 12px; margin-top: 12px; }
+.toast {
+  position: fixed; bottom: 90px; left: 12px; right: 12px; z-index: 99;
+  background: #1e8e3e; color: #fff; padding: 12px; border-radius: 10px;
+  text-align: center; font-size: 14px; display: none;
+}
+.bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 12px; box-shadow: 0 -2px 8px rgba(0,0,0,.06); }
+.spinner { text-align: center; padding: 30px; color: #888; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🔍 Kiểm tồn &amp; Hạn sử dụng</h1>
+  <p id="sub">Đang tải dữ liệu...</p>
+</div>
+
+<div id="app" style="display:none">
+  <!-- Chọn CH -->
+  <div class="card" id="cardCh">
+    <h2>1️⃣ Chọn cửa hàng</h2>
+    <label>Đợt rà soát</label>
+    <select id="selDot"></select>
+    <label>Cửa hàng</label>
+    <select id="selCh"></select>
+    <div class="row" id="gpsRow" style="display:none">
+      <button class="btn ghost" id="btnGps" type="button">📍 Lấy vị trí GPS</button>
+      <div class="gps"><span class="stat" id="gpsStat"></span></div>
+    </div>
+    <div id="gpsWarn"></div>
+  </div>
+
+  <!-- Danh sách hàng -->
+  <div id="cardProd" class="card" style="display:none">
+    <h2>2️⃣ Kiểm tồn thực tế</h2>
+    <div id="prodList"></div>
+  </div>
+
+  <div id="unsurveyed" class="card" style="display:none"></div>
+
+  <div class="bar">
+    <button class="btn" id="btnSubmit" disabled>💾 Gửi khai báo</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxM-yFzIPsW-HG3RY5VRICeE04XVLMxZ8RBFYUs_lQqTF2NkDqUrzPmRGOjVIe6UIrbOQ/exec'; // sẽ được thay khi deploy
+
+let DOTS = [], DULIEU = [], CAIDAT = {};
+let gps = { lat: null, lng: null };
+let chInfo = null;
+let curDotId = '';
+let myKhaiBao = [];
+let doneChSet = new Set();
+
+const $ = id => document.getElementById(id);
+
+function fmt(n) { return (n == null || isNaN(n)) ? '' : Number(n); }
+function todayStr() { const d = new Date(); return d; }
+
+function parseHSD(s) {
+  // s dạng dd/mm/yyyy
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s).trim());
+  if (!m) return null;
+  return new Date(+m[3], +m[2] - 1, +m[1]);
+}
+function daysFromToday(d) {
+  const t = new Date(); t.setHours(0,0,0,0);
+  return Math.round((d - t) / 86400000);
+}
+
+async function load() {
+  try {
+    const r = await fetch(GAS_URL + '?action=formdata');
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Lỗi tải');
+    DULIEU = j.dulieu || [];
+    CAIDAT = j.caidat || {};
+    curDotId = j.activeDot || '';
+    myKhaiBao = j.myKhaiBao || [];
+    buildDoneSet(j.khaibao || []);
+    DOTS = await loadDots();
+    render();
+  } catch (e) {
+    $('sub').textContent = 'Không tải được dữ liệu';
+    $('spinner') && ($('spinner').textContent = String(e));
+  }
+}
+
+async function loadDots() {
+  try {
+    const r = await fetch(GAS_URL + '?action=data');
+    const j = await r.json();
+    return j.dots || [];
+  } catch (e) { return []; }
+}
+
+function render() {
+  $('sub').textContent = 'Đợt: ' + (curDotId || 'chưa có') + ' · ' + DULIEU.length + ' dòng';
+  const sel = $('selDot');
+  sel.innerHTML = '';
+  DOTS.forEach(d => {
+    const o = document.createElement('option');
+    o.value = String(d.ID);
+    o.textContent = d.TenDot || d.ID;
+    if (String(d.ID) === curDotId) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => { curDotId = sel.value; fillCH(sel.value); };
+  fillCH(curDotId);
+  $('app').style.display = 'block';
+}
+
+function fillCH(dotId) {
+  const list = DULIEU.filter(r => String(r.DotID) === dotId);
+  // unique CH
+  const map = {};
+  list.forEach(r => { map[String(r.MaCH)] = r; });
+  const chs = Object.values(map);
+  const sel = $('selCh');
+  sel.innerHTML = '';
+  if (!chs.length) {
+    const o = document.createElement('option');
+    o.value = ''; o.textContent = '— chưa có dữ liệu đợt này —';
+    sel.appendChild(o);
+    chInfo = null; $('cardProd').style.display = 'none';
+    return;
+  }
+  chs.forEach(c => {
+    const o = document.createElement('option');
+    o.value = String(c.MaCH);
+    o.textContent = (c.MaCH || '') + ' — ' + (c.TenCH || '');
+    sel.appendChild(o);
+  });
+  sel.onchange = () => onSelectCH(sel.value);
+  $('gpsRow').style.display = 'flex';
+  onSelectCH(sel.value);
+}
+
+function onSelectCH(ma) {
+  chInfo = DULIEU.find(r => String(r.MaCH) === String(ma)) || null;
+  renderProducts();
+}
+
+function renderProducts() {
+  const box = $('prodList');
+  box.innerHTML = '';
+  if (!chInfo) { $('cardProd').style.display = 'none'; return; }
+  const ma = String(chInfo.MaCH);
+  const prods = DULIEU.filter(r => String(r.MaCH) === ma && String(r.DotID) === curDotId);
+  $('cardProd').style.display = 'block';
+  if (!prods.length) { box.innerHTML = '<div class="warn">Đợt này chưa có hàng cần kiểm.</div>'; return; }
+
+  prods.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'prod';
+    d.id = 'prod_' + p.MaHang;
+    d.innerHTML = `
+      <div style="font-weight:700">${p.MaHang || ''} — ${p.TenHang || ''}</div>
+      <div class="pill">ĐVT: ${p.DVT || '-'}</div>
+      <div class="pill">Tồn dự kiến: ${p.SL_DuKien || 0}</div>
+      <div class="lot-lists"></div>
+      <button class="btn ghost" type="button" onclick="addLot('${p.MaHang}')">＋ Thêm lô (SL + HSD)</button>
+    `;
+    box.appendChild(d);
+    addLot(p.MaHang);
+  });
+}
+
+function addLot(maHang) {
+  const prod = DULIEU.find(r => String(r.MaHang) === String(maHang) && String(r.MaCH) === String(chInfo.MaCH));
+  const listBox = document.querySelector('#prod_' + maHang + ' .lot-lists');
+  const lot = document.createElement('div');
+  lot.className = 'lot';
+  lot.innerHTML = `
+    <div class="row">
+      <div><label>SL</label><input type="number" class="sl" inputmode="numeric" placeholder="0"></div>
+      <div><label>HSD (dd/mm/yyyy)</label><input type="text" class="hsd" placeholder="31/12/2026"></div>
+    </div>
+    <div class="lotwarn"></div>
+  `;
+  listBox.appendChild(lot);
+  lot.querySelector('.sl').addEventListener('input', () => checkProd(maHang));
+  lot.querySelector('.hsd').addEventListener('input', () => checkProd(maHang));
+  checkProd(maHang);
+}
+
+function checkProd(maHang) {
+  const prod = DULIEU.find(r => String(r.MaHang) === String(maHang) && String(r.MaCH) === String(chInfo.MaCH));
+  const box = document.querySelector('#prod_' + maHang);
+  const lots = box.querySelectorAll('.lot');
+  let totalSL = 0, warns = [];
+  lots.forEach(lot => {
+    const sl = fmt(lot.querySelector('.sl').value) || 0;
+    const hsd = lot.querySelector('.hsd').value.trim();
+    const wBox = lot.querySelector('.lotwarn');
+    totalSL += sl;
+    const w = checkLot(sl, hsd);
+    wBox.innerHTML = w.length ? w.map(x => '<div class="warn">⚠ ' + x + '</div>').join('') : '';
+    if (w.length) warns.push(...w);
+  });
+  // so sánh tổng SL vs tồn dự kiến
+  const dukien = fmt(prod.SL_DuKien) || 0;
+  const slBang0 = String(CAIDAT.sl_bang_0) === 'on';
+  if (slBang0 && totalSL === 0) warns.push(maHang + ': SL = 0');
+  if (dukien > 0) {
+    const lech = Math.abs(totalSL - dukien) / dukien * 100;
+    const ng = fmt(CAIDAT.sl_lech_pct) || 20;
+    if (lech > ng) warns.push(maHang + ': SL lệch ' + lech.toFixed(0) + '% so với tồn dự kiến');
+  }
+  checkSubmitable();
+  return warns;
+}
+
+function checkLot(sl, hsd) {
+  const w = [];
+  if (hsd) {
+    const d = parseHSD(hsd);
+    if (!d) { w.push('Hạn sử dụng sai định dạng (dd/mm/yyyy)'); }
+    else {
+      const days = daysFromToday(d);
+      const canhan = fmt(CAIDAT.canhan_ngay) || 30;
+      const hethanLau = fmt(CAIDAT.hethan_lau_ngay) || 60;
+      const quaXa = fmt(CAIDAT.han_qua_xa_ngay) || 365;
+      if (days < 0) {
+        if (-days > hethanLau) w.push('Đã hết hạn quá ' + hethanLau + ' ngày');
+        else w.push('Đã hết hạn ' + (-days) + ' ngày');
+      } else if (days <= canhan) {
+        w.push('Cận hạn — còn ' + days + ' ngày');
+      } else if (days > quaXa) {
+        w.push('Hạn còn lại quá xa (' + days + ' ngày)');
+      }
+    }
+  }
+  return w;
+}
+
+function getGps() {
+  if (!navigator.geolocation) { alert('Thiết bị không hỗ trợ GPS'); return; }
+  $('gpsStat').textContent = 'Đang lấy...';
+  navigator.geolocation.getCurrentPosition(pos => {
+    gps.lat = pos.coords.latitude;
+    gps.lng = pos.coords.longitude;
+    checkGpsDistance();
+  }, () => { $('gpsStat').textContent = '⚠ Không lấy được GPS'; });
+}
+
+function checkGpsDistance() {
+  if (!chInfo || gps.lat == null) return;
+  const clat = fmt(chInfo.Lat), clng = fmt(chInfo.Lng);
+  const max = fmt(CAIDAT.gps_kc_max) || 500;
+  let msg;
+  if (clat && clng) {
+    const kc = haversine(gps.lat, gps.lng, clat, clng);
+    const km = (kc/1000).toFixed(2);
+    $('gpsStat').textContent = '📏 ' + km + ' km';
+    if (kc > max) {
+      msg = '<div class="err">⚠ Khoảng cách ' + km + ' km vượt ngưỡng ' + (max/1000) + ' km — kiểm tra lại vị trí CH</div>';
+      $('gpsStat').style.color = '#cf1322';
+    } else {
+      msg = '<div class="okMsg">✅ Vị trí hợp lệ (' + km + ' km)</div>';
+      $('gpsStat').style.color = '#1e8e3e';
+    }
+  } else {
+    $('gpsStat').textContent = '(CH chưa có tọa độ)';
+    msg = '<div class="warn">⚠ CH chưa có tọa độ trong dữ liệu</div>';
+  }
+  $('gpsWarn').innerHTML = msg;
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function checkSubmitable() {
+  const prods = document.querySelectorAll('.prod');
+  let hasData = false;
+  prods.forEach(p => {
+    const lots = p.querySelectorAll('.lot');
+    lots.forEach(lot => {
+      if (lot.querySelector('.sl').value) hasData = true;
+    });
+  });
+  $('btnSubmit').disabled = !(hasData && chInfo);
+}
+
+async function submit() {
+  if (!chInfo) return;
+  const lots = [];
+  const prods = document.querySelectorAll('.prod');
+  prods.forEach(p => {
+    const maHang = p.id.replace('prod_', '');
+    p.querySelectorAll('.lot').forEach(lot => {
+      const sl = fmt(lot.querySelector('.sl').value) || 0;
+      const hsd = lot.querySelector('.hsd').value.trim();
+      if (sl > 0 || hsd) {
+        const w = checkLot(sl, hsd);
+        lots.push({
+          MaCH: chInfo.MaCH, MaHang: maHang, SL_Lo: sl, HSD: hsd,
+          Lat: gps.lat, Lng: gps.lng,
+          KcGps: kcMeters(), CanhBao: w.join('; ')
+        });
+      }
+    });
+  });
+  if (!lots.length) { alert('Vui lòng nhập ít nhất 1 lô'); return; }
+  $('btnSubmit').disabled = true;
+  try {
+    const r = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'submit', dot: curDotId, lots })
+    });
+    const j = await r.json();
+    if (j.ok) {
+      doneChSet.add(String(chInfo.MaCH));
+      renderUnsurveyed();
+      showToast('✅ Đã gửi ' + j.n + ' dòng khai báo');
+      resetForm();
+    } else {
+      showToast('❌ ' + (j.error || 'Lỗi gửi'), true);
+      $('btnSubmit').disabled = false;
+    }
+  } catch (e) {
+    showToast('❌ ' + String(e), true);
+    $('btnSubmit').disabled = false;
+  }
+}
+
+function kcMeters() {
+  if (gps.lat == null || !chInfo) return '';
+  const clat = fmt(chInfo.Lat), clng = fmt(chInfo.Lng);
+  if (!clat || !clng) return '';
+  return Math.round(haversine(gps.lat, gps.lng, clat, clng));
+}
+
+function resetForm() {
+  document.querySelectorAll('.lot').forEach(l => l.remove());
+  document.querySelectorAll('.prod').forEach(p => addLot(p.id.replace('prod_', '')));
+  checkSubmitable();
+}
+
+function showToast(msg, isErr) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.background = isErr ? '#cf1322' : '#1e8e3e';
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+$('btnGps').addEventListener('click', getGps);
+$('btnSubmit').addEventListener('click', submit);
+load();
+
+function buildDoneSet(khaibao) {
+  doneChSet = new Set();
+  for (const kb of khaibao) {
+    if (kb.MaCH) doneChSet.add(String(kb.MaCH));
+  }
+  renderUnsurveyed();
+}
+
+function getUnsurveyed() {
+  if (!curDotId) return [];
+  const seen = new Set();
+  const out = [];
+  for (const r of DULIEU) {
+    if (String(r.DotID) !== curDotId) continue;
+    const m = String(r.MaCH);
+    if (seen.has(m)) continue;
+    seen.add(m);
+    if (!doneChSet.has(m)) out.push(r);
+  }
+  return out;
+}
+
+function renderUnsurveyed() {
+  const box = $('unsurveyed');
+  if (!box) return;
+  const list = getUnsurveyed();
+  if (!list.length) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  const head = chInfo ? '🤝 Cùng nhắc đồng đội làm kiểm tồn bạn nhé!' : '📋 Danh sách CH chưa kiểm tồn';
+  const byQLKV = {};
+  list.forEach(r => { const q = r.QLKV || 'Chưa phân KV'; if (!byQLKV[q]) byQLKV[q] = []; byQLKV[q].push(r); });
+  let html = '<div style="font-weight:700;font-size:14px;margin-bottom:8px">' + head + '</div>';
+  html += '<div style="font-size:13px;color:#888;margin-bottom:6px">Còn <b>' + list.length + '</b> CH chưa làm kiểm tồn</div>';
+  for (const [q, chs] of Object.entries(byQLKV)) {
+    html += '<div style="margin:6px 0"><span class="pill">' + q + ' (' + chs.length + ')</span> ';
+    html += chs.map(c => c.MaCH + (c.TenCH ? ' - ' + c.TenCH : '')).join(' · ') + '</div>';
+  }
+  box.innerHTML = html;
+  box.style.display = 'block';
+}
+</script>
+</body>
+</html>
