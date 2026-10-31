@@ -3,52 +3,104 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard — Kiểm tồn &amp; Hạn sử dụng</title>
+<title>Dashboard — Kiểm Tồn &amp; Hạn Sử Dụng · WinMart+ Rural</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+:root{
+  --red:#d71920; --navy:#1a3c6e; --gold:#ffc107; --green:#1e8e4e;
+  --bg:#f4f6fb; --card:#ffffff; --line:#e5e9f2; --txt:#1c2434; --mut:#6b7280;
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; background: #f2f4f7; color: #1a1a2e; }
-.top { background: linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; padding:16px; }
-.top h1 { font-size:20px; }
-.top p { font-size:12px; opacity:.9; margin-top:4px; }
-.tabs { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; background:#fff; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:5; }
-.tab { padding:8px 14px; border-radius:20px; font-size:13px; cursor:pointer; background:#eef2ff; color:#1e3a8a; border:1px solid transparent; }
-.tab.on { background:#2563eb; color:#fff; }
-.wrap { padding:12px; max-width:1100px; margin:0 auto; }
-.card { background:#fff; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-.card h2 { font-size:16px; margin-bottom:10px; }
-.card h3 { font-size:14px; margin:12px 0 6px; }
-table { width:100%; border-collapse:collapse; font-size:13px; }
-th,td { padding:7px 8px; border-bottom:1px solid #f0f1f5; text-align:left; }
-th { background:#f8fafc; color:#555; font-weight:600; position:sticky; top:0; }
-.kpi { display:flex; gap:10px; flex-wrap:wrap; }
-.kpi .b { flex:1; min-width:130px; background:#f8fafc; border-radius:10px; padding:12px; text-align:center; }
-.kpi .b .v { font-size:24px; font-weight:700; color:#1e3a8a; }
-.kpi .b .l { font-size:11px; color:#777; }
-.btn { padding:9px 16px; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; background:#2563eb; color:#fff; }
-.btn.ghost { background:#eef2ff; color:#2563eb; }
-.btn.sm { padding:5px 10px; font-size:12px; }
-.btn.green { background:#1e8e3e; }
-input, select, textarea { width:100%; padding:9px; border:1px solid #d0d5dd; border-radius:8px; font-size:14px; }
-label { font-size:12px; color:#555; display:block; margin:8px 0 4px; }
-.row { display:flex; gap:10px; flex-wrap:wrap; }
-.row > div { flex:1; min-width:160px; }
-.tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:12px; background:#eef2ff; color:#1e3a8a; }
-.tag.act { background:#e6f7ee; color:#1e8e3e; }
-.tag.warn { background:#fff7e6; color:#ad6800; }
-.tag.err { background:#fff1f0; color:#cf1322; }
-textarea { font-family:monospace; font-size:12px; min-height:160px; }
-.hint { font-size:12px; color:#888; margin-top:6px; }
-.hidden { display:none; }
-.toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#1e8e3e; color:#fff; padding:12px 20px; border-radius:10px; font-size:14px; display:none; z-index:99; }
-.over { overflow-x:auto; max-height:520px; }
-.prog { height:8px; background:#eef2ff; border-radius:6px; overflow:hidden; }
-.prog > div { height:100%; background:#2563eb; }
+body {
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  background: var(--bg); color: var(--txt);
+  -webkit-font-smoothing: antialiased;
+}
+.top {
+  background: linear-gradient(135deg,var(--navy),#2c4a8a);
+  color: #fff; padding: 18px 20px;
+  box-shadow: 0 4px 14px rgba(26,60,110,.15);
+}
+.top .top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.top h1 { font-size: 18px; font-weight: 800; }
+.top p { font-size: 11px; opacity: .85; margin-top: 4px; }
+.top .form-link { color: #fff; text-decoration: none; font-size: 12.5px; font-weight: 700; background: rgba(255,255,255,.16); padding: 8px 14px; border-radius: 10px; white-space: nowrap; }
+.tabs {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px;
+  background: #fff; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 5;
+}
+.tab {
+  padding: 8px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; background: #eef2ff; color: var(--navy);
+  border: 1.5px solid transparent; font-family: inherit;
+}
+.tab.on { background: var(--navy); color: #fff; }
+.wrap { padding: 16px; max-width: 1100px; margin: 0 auto; }
+.card {
+  background: var(--card); border-radius: 14px; padding: 18px;
+  margin-bottom: 14px; box-shadow: 0 2px 10px rgba(20,30,60,.06);
+  border: 1px solid var(--line);
+}
+.card h2 { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 12px; }
+.card h3 { font-size: 13px; font-weight: 600; color: var(--txt); margin: 12px 0 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+th { background: #f8fafc; color: var(--mut); font-weight: 600; position: sticky; top: 0; }
+.kpi { display: flex; gap: 10px; flex-wrap: wrap; }
+.kpi .b { flex: 1; min-width: 130px; background: #f8fafc; border-radius: 12px; padding: 14px; text-align: center; border: 1px solid var(--line); }
+.kpi .b .v { font-size: 26px; font-weight: 800; color: var(--navy); }
+.kpi .b .l { font-size: 11px; color: var(--mut); font-weight: 500; margin-top: 2px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 18px; border: none; border-radius: 10px;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: opacity .15s, transform .05s;
+}
+.btn:active { transform: scale(.98); }
+.btn-blue { background: var(--navy); color: #fff; }
+.btn-red { background: var(--red); color: #fff; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-ghost { background: #eef2ff; color: var(--navy); }
+.btn.sm { padding: 5px 10px; font-size: 11.5px; border-radius: 8px; }
+input, select, textarea {
+  width: 100%; padding: 10px 11px; border: 1.5px solid var(--line);
+  border-radius: 10px; font-size: 13.5px; font-family: inherit;
+  background: #fafbfd; color: var(--txt); outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--navy); background: #fff; }
+label { font-size: 11.5px; font-weight: 600; color: var(--mut); display: block; margin: 8px 0 4px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > div { flex: 1; min-width: 160px; }
+.tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 3px 10px; border-radius: 14px; background: #eef2ff; color: var(--navy); }
+.tag.act { background: #ecfdf5; color: var(--green); }
+.tag.warn { background: #fef3c7; color: #92400e; }
+.tag.err { background: #fee2e2; color: #991b1b; }
+textarea { font-family: 'Fira Code', monospace; font-size: 12px; min-height: 160px; }
+.hint { font-size: 11.5px; color: var(--mut); margin-top: 6px; line-height: 1.4; }
+.hidden { display: none; }
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: #166534; color: #fff; padding: 12px 22px; border-radius: 12px;
+  font-size: 13px; font-weight: 600; z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2); transition: .3s; white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.over { overflow-x: auto; max-height: 520px; }
+.prog { height: 8px; background: #eef2ff; border-radius: 6px; overflow: hidden; }
+.prog > div { height: 100%; background: var(--navy); border-radius: 6px; }
 </style>
 </head>
 <body>
 <div class="top">
-  <h1>📊 Dashboard — Kiểm tồn &amp; Hạn sử dụng</h1>
-  <p id="sub">Đang tải...</p>
+  <div class="top-row">
+    <div>
+      <h1>📊 Dashboard — Kiểm Tồn &amp; Hạn Sử Dụng</h1>
+      <p id="sub">WinMart+ Rural · Đang tải...</p>
+    </div>
+    <a class="form-link" href="index.html" target="_blank">📋 Form CH ↗</a>
+  </div>
 </div>
 
 <div class="tabs">
@@ -146,7 +198,14 @@ let DATA = null; // {dots, dulieu, khaibao, caidat}
 const $ = id => document.getElementById(id);
 function fmt(n){ return (n==null||isNaN(n))?'':Number(n); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function toast(m, err){ const t=$('toast'); t.textContent=m; t.style.background=err?'#cf1322':'#1e8e3e'; t.style.display='block'; setTimeout(()=>t.style.display='none',3000); }
+function toast(m, err){
+  const t=$('toast');
+  t.textContent=m;
+  t.className='toast show';
+  if(err) t.style.background='#991b1b';
+  else t.style.background='#166534';
+  setTimeout(()=>t.className='toast',3000);
+}
 
 async function load(){
   try {
