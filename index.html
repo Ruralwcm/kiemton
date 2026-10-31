@@ -427,25 +427,36 @@ function checkLot(sl, hsd) {
 function checkSubmitable() {
   if (!chInfo) { $('btnSubmit').disabled=true; return; }
   const prods = document.querySelectorAll('.prod');
-  let hasData = false;
-  prods.forEach(p => { p.querySelectorAll('.lot').forEach(l=>{ if(l.querySelector('.sl').value) hasData=true; }); });
-  $('btnSubmit').disabled = !hasData;
+  if (!prods.length) { $('btnSubmit').disabled=true; return; }
+  let allOK = true;
+  prods.forEach(p => {
+    let prodHasData = false;
+    p.querySelectorAll('.lot').forEach(l => { if(l.querySelector('.sl').value) prodHasData=true; });
+    if (!prodHasData) allOK = false;
+  });
+  $('btnSubmit').disabled = !allOK;
 }
 
 async function submit() {
   if (!chInfo) return;
   const lots = [];
-  document.querySelectorAll('.prod').forEach(p => {
+  const prods = document.querySelectorAll('.prod');
+  let missing = 0;
+  prods.forEach(p => {
     const maHang = p.id.replace('prod_','');
+    let prodHasData = false;
     p.querySelectorAll('.lot').forEach(lot => {
       const sl = fmt(lot.querySelector('.sl').value)||0;
       const hsd = lot.querySelector('.hsd').value.trim();
       if (sl>0) {
+        prodHasData = true;
         const w = checkLot(sl,hsd);
         lots.push({ MaCH:chInfo.MaCH,MaHang,SL_Lo:sl,HSD:hsd, CanhBao:w.join('; ') });
       }
     });
+    if (!prodHasData) missing++;
   });
+  if (missing > 0) { showToast('⚠ Còn ' + missing + ' mặt hàng chưa xác nhận SL', true); $('btnSubmit').disabled = false; return; }
   if (!lots.length) { showToast('Vui lòng nhập ít nhất 1 lô', true); return; }
   $('btnSubmit').disabled = true;
   try {
@@ -480,7 +491,7 @@ function resetForm() {
 function buildDoneSet(khaibao) {
   doneChSet = new Set();
   for (const kb of khaibao) { if (kb.MaCH) doneChSet.add(String(kb.MaCH)); }
-  renderUnsurveyed();
+  // "Cùng nhắc" chỉ hiện sau khi submit, không hiện khi load
 }
 
 function getUnsurveyed() {
