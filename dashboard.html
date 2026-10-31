@@ -122,10 +122,14 @@ textarea { font-family: 'Fira Code', monospace; font-size: 12px; min-height: 160
     </div>
     <div class="card">
       <div class="kpi" id="kpi"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn btn-red sm" onclick="exportChuaKS()">📋 Danh sách CH chưa kiểm tồn</button>
+        <button class="btn btn-blue sm" onclick="exportData()">📥 Xuất dữ liệu đợt</button>
+      </div>
     </div>
     <div class="card">
-      <h2>Tiến độ theo cửa hàng</h2>
-      <div class="over"><table id="tblTienDo"></table></div>
+      <h2>Tiến độ theo GĐV / QLKV</h2>
+      <div id="gdvProgress"></div>
     </div>
   </div>
 
@@ -237,57 +241,153 @@ function renderAll(){
   renderCaidat();
 }
 
-// ---------- Tiến độ ----------
+// ---------- Tiến độ (grouped GĐV/QLKV) ----------
+let gdvData = {}; // {GDV: {total, done, qlkv: {QLKV: {total, done, chList[]}}}}
+
 function renderTienDo(){
   const dot = $('dotFilter').value;
-  const q = $('search').value.toLowerCase();
+  const q = ($('search').value||'').toLowerCase();
   const dl = (DATA.dulieu||[]).filter(r => String(r.DotID)===dot);
   const kb = (DATA.khaibao||[]).filter(r => String(r.DotID)===dot);
 
-  // group theo CH + mã hàng
+  // unique CH per MaCH
   const chMap = {};
   dl.forEach(r => {
     const k = r.MaCH;
-    if(!chMap[k]) chMap[k] = { MaCH:k, TenCH:r.TenCH, GDV:r.GDV, QLKV:r.QLKV, Tinh:r.Tinh, items:[], dong:0 };
-    chMap[k].items.push(r);
+    if(!chMap[k]) chMap[k] = { MaCH:k, TenCH:r.TenCH, GDV:r.GDV||'Chưa phân GĐV', QLKV:r.QLKV||'Chưa phân KV', Tinh:r.Tinh||'', dong:0 };
     chMap[k].dong++;
   });
+  kb.forEach(r => { const c=chMap[r.MaCH]; if(c) c.done=(c.done||0)+1; });
+  const chList = Object.values(chMap);
 
-  // đánh dấu đã khai báo
-  kb.forEach(r => {
-    const c = chMap[r.MaCH];
-    if(c) c.done = (c.done||0)+1;
-  });
+  // filter by search
+  const filtered = q ? chList.filter(c => String(c.MaCH+' '+c.QLKV+' '+c.GDV+' '+c.Tinh).toLowerCase().includes(q)) : chList;
 
-  let list = Object.values(chMap);
-  const totCH = list.length;
-  const doneCH = list.filter(c => c.done).length;
-  const dongKb = kb.length, dongDl = dl.length;
-
-  if(q){
-    list = list.filter(c => String(c.MaCH+' '+c.QLKV+' '+c.GDV+' '+c.Tinh).toLowerCase().includes(q));
-  }
+  // compute totals from full set (not filtered)
+  const totCH = chList.length;
+  const doneCH = chList.filter(c=>c.done).length;
 
   $('kpi').innerHTML = `
     <div class="b"><div class="v">${totCH}</div><div class="l">Cửa hàng</div></div>
-    <div class="b"><div class="v">${doneCH}</div><div class="l">Đã khai báo</div></div>
-    <div class="b"><div class="v">${totCH-doneCH}</div><div class="l">Chưa khai báo</div></div>
+    <div class="b"><div class="v">${doneCH}</div><div class="l">Đã kiểm tồn</div></div>
+    <div class="b"><div class="v">${totCH-doneCH}</div><div class="l">Chưa kiểm tồn</div></div>
     <div class="b"><div class="v">${totCH?Math.round(doneCH/totCH*100):0}%</div><div class="l">Tỷ lệ</div></div>
-    <div class="b"><div class="v">${dongKb}</div><div class="l">Dòng khai báo</div></div>
+    <div class="b"><div class="v">${kb.length}</div><div class="l">Dòng khai báo</div></div>
   `;
 
-  const rows = list.map(c => {
-    const pct = c.done ? (c.done / c.dong * 100) : 0;
-    return `<tr>
-      <td>${esc(c.MaCH)}<br><span style="color:#888;font-size:11px">${esc(c.TenCH||'')}</span></td>
-      <td>${esc(c.GDV||'')}</td><td>${esc(c.QLKV||'')}</td><td>${esc(c.Tinh||'')}</td>
-      <td>${c.dong}</td>
-      <td>${c.done? '<span class="tag act">Đã làm</span>':'<span class="tag err">Chưa</span>'}</td>
-      <td style="min-width:120px"><div class="prog"><div style="width:${pct}%"></div></div></td>
-    </tr>`;
-  }).join('');
+  // group by GĐV → QLKV
+  const gdvMap = {};
+  filtered.forEach(c => {
+    const g = c.GDV; if(!gdvMap[g]) gdvMap[g] = { total:0, done:0, qlkv:{} };
+    gdvMap[g].total++;
+    if(c.done) gdvMap[g].done++;
+    const qlk = c.QLKV; if(!gdvMap[g].qlkv[qlk]) gdvMap[g].qlkv[qlk] = { total:0, done:0, chs:[] };
+    gdvMap[g].qlkv[qlk].total++;
+    if(c.done) gdvMap[g].qlkv[qlk].done++;
+    gdvMap[g].qlkv[qlk].chs.push(c);
+  });
+  gdvData = gdvMap;
 
-  $('tblTienDo').innerHTML = `<thead><tr><th>CH</th><th>GĐV</th><th>QLKV</th><th>Tỉnh</th><th>Dòng</th><th>TT</th><th>Tiến độ</th></tr></thead><tbody>${rows||'<tr><td colspan="7">Chưa có dữ liệu</td></tr>'}</tbody>`;
+  // render
+  let html = '';
+  for (const [gdv, g] of Object.entries(gdvMap).sort()) {
+    const gPct = g.total ? Math.round(g.done/g.total*100) : 0;
+    const gid = 'g_' + gdv.replace(/[^a-zA-Z0-9]/g,'_');
+    html += `
+      <div style="margin-bottom:2px">
+        <div class="gdv-row" onclick="toggleGDV('${gid}')" style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:700;font-size:13px">
+          <span id="${gid}_arr" style="font-size:11px;transition:.2s">▶</span>
+          <span style="flex:1">${esc(gdv)}</span>
+          <span style="font-size:12px;color:var(--mut)">${g.done}/${g.total} CH</span>
+          <span style="font-size:12px;font-weight:800;color:${gPct>=80?'var(--green)':gPct>=50?'var(--gold)':'var(--red)'}">${gPct}%</span>
+          <div class="prog" style="width:100px"><div style="width:${gPct}%"></div></div>
+        </div>
+        <div class="gdv-detail" id="${gid}" style="display:none;padding:4px 0 4px 24px">`;
+
+    for (const [qlkv, qq] of Object.entries(g.qlkv).sort()) {
+      const qPct = qq.total ? Math.round(qq.done/qq.total*100) : 0;
+      html += `
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px;border-radius:6px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${qPct===100?'var(--green)':qPct>0?'var(--gold)':'var(--line)'};flex-shrink:0"></span>
+            <span style="flex:1;font-weight:600;color:var(--mut)">${esc(qlkv)}</span>
+            <span style="color:var(--txt)">${qq.done}/${qq.total}</span>
+            <span style="font-weight:700;color:${qPct>=80?'var(--green)':qPct>=50?'var(--gold)':'var(--red)'}">${qPct}%</span>
+            <span style="font-size:11px;color:var(--mut)">${qq.chs.filter(c=>!c.done).map(c=>c.MaCH+' '+c.TenCH).slice(0,3).join(', ')||'✅'}</span>
+          </div>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  if (!html) html = '<div style="text-align:center;color:var(--mut);padding:20px">Chưa có dữ liệu cho đợt này</div>';
+  $('gdvProgress').innerHTML = html;
+}
+
+function toggleGDV(id) {
+  const el = document.getElementById(id);
+  const arr = document.getElementById(id+'_arr');
+  if (!el) return;
+  const show = el.style.display === 'none';
+  el.style.display = show ? 'block' : 'none';
+  if(arr) arr.textContent = show ? '▼' : '▶';
+}
+
+// ---------- Export ----------
+function buildExportCSV(headers, rows) {
+  const escCSV = v => { const s=String(v==null?'':v); return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s; };
+  return headers.map(escCSV).join(',') + '\n' + rows.map(r => r.map(escCSV).join(',')).join('\n');
+}
+
+function downloadCSV(filename, csv) {
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url); toast('✅ Đã tải ' + filename);
+}
+
+function exportChuaKS() {
+  const dot = $('dotFilter').value;
+  const dl = (DATA.dulieu||[]).filter(r => String(r.DotID)===dot);
+  const kb = (DATA.khaibao||[]).filter(r => String(r.DotID)===dot);
+
+  const doneSet = new Set();
+  kb.forEach(r => { if(r.MaCH) doneSet.add(String(r.MaCH)); });
+
+  const seen = new Set();
+  const rows = [];
+  dl.forEach(r => {
+    const m = String(r.MaCH);
+    if(seen.has(m)||doneSet.has(m)) return;
+    seen.add(m);
+    rows.push([r.MaCH, r.TenCH, r.GDV, r.QLKV, r.Tinh, r.Lat, r.Lng]);
+  });
+
+  if(!rows.length){ toast('Tất cả CH đã kiểm tồn! ✅', false); return; }
+  const h = ['Mã CH','Tên CH','GĐV','QLKV','Tỉnh','Lat','Lng'];
+  downloadCSV('CH_Chua_KiemTon_' + new Date().toISOString().slice(0,10) + '.csv', buildExportCSV(h, rows));
+}
+
+function exportData() {
+  const dot = $('dotFilter').value;
+  const dl = (DATA.dulieu||[]).filter(r => String(r.DotID)===dot);
+  const kb = (DATA.khaibao||[]).filter(r => String(r.DotID)===dot);
+
+  // Sheet 1: DU_LIEU
+  let csv = '=== DU_LIEU (upload) ===\n';
+  csv += 'Mã CH,Tên CH,Mã hàng,Tên hàng,ĐVT,SL dự kiến,GĐV,QLKV,Tỉnh,Lat,Lng\n';
+  dl.forEach(r => {
+    csv += [r.MaCH,r.TenCH,r.MaHang,r.TenHang,r.DVT,r.SL_DuKien,r.GDV,r.QLKV,r.Tinh,r.Lat,r.Lng].map(v=>String(v==null?'':v).includes(',')?'"'+String(v)+'"':String(v==null?'':v)).join(',')+'\n';
+  });
+
+  // Sheet 2: KHAI_BAO
+  csv += '\n=== KHAI_BAO (thực tế) ===\n';
+  csv += 'Mã CH,Mã hàng,SL lô,HSD,Ngày khai báo,Lat,Lng,Kc GPS,Cảnh báo\n';
+  kb.forEach(r => {
+    csv += [r.MaCH,r.MaHang,r.SL_Lo,r.HSD,r.NgayKhaiBao,r.Lat,r.Lng,r.KcGps,r.CanhBao].map(v=>String(v==null?'':v).includes(',')?'"'+String(v)+'"':String(v==null?'':v)).join(',')+'\n';
+  });
+
+  downloadCSV('KiemTon_Data_' + (dot||'all') + '_' + new Date().toISOString().slice(0,10) + '.csv', csv);
 }
 
 // ---------- Đợt ----------
