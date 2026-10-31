@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Kiểm tồn &amp; Hạn sử dụng</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; background: #f2f4f7; color: #1a1a2e; }
+.top { background: linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; padding:16px; }
+.top h1 { font-size:20px; }
+.top p { font-size:12px; opacity:.9; margin-top:4px; }
+.tabs { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; background:#fff; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:5; }
+.tab { padding:8px 14px; border-radius:20px; font-size:13px; cursor:pointer; background:#eef2ff; color:#1e3a8a; border:1px solid transparent; }
+.tab.on { background:#2563eb; color:#fff; }
+.wrap { padding:12px; max-width:1100px; margin:0 auto; }
+.card { background:#fff; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.card h2 { font-size:16px; margin-bottom:10px; }
+.card h3 { font-size:14px; margin:12px 0 6px; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th,td { padding:7px 8px; border-bottom:1px solid #f0f1f5; text-align:left; }
+th { background:#f8fafc; color:#555; font-weight:600; position:sticky; top:0; }
+.kpi { display:flex; gap:10px; flex-wrap:wrap; }
+.kpi .b { flex:1; min-width:130px; background:#f8fafc; border-radius:10px; padding:12px; text-align:center; }
+.kpi .b .v { font-size:24px; font-weight:700; color:#1e3a8a; }
+.kpi .b .l { font-size:11px; color:#777; }
+.btn { padding:9px 16px; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; background:#2563eb; color:#fff; }
+.btn.ghost { background:#eef2ff; color:#2563eb; }
+.btn.sm { padding:5px 10px; font-size:12px; }
+.btn.green { background:#1e8e3e; }
+input, select, textarea { width:100%; padding:9px; border:1px solid #d0d5dd; border-radius:8px; font-size:14px; }
+label { font-size:12px; color:#555; display:block; margin:8px 0 4px; }
+.row { display:flex; gap:10px; flex-wrap:wrap; }
+.row > div { flex:1; min-width:160px; }
+.tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:12px; background:#eef2ff; color:#1e3a8a; }
+.tag.act { background:#e6f7ee; color:#1e8e3e; }
+.tag.warn { background:#fff7e6; color:#ad6800; }
+.tag.err { background:#fff1f0; color:#cf1322; }
+textarea { font-family:monospace; font-size:12px; min-height:160px; }
+.hint { font-size:12px; color:#888; margin-top:6px; }
+.hidden { display:none; }
+.toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#1e8e3e; color:#fff; padding:12px 20px; border-radius:10px; font-size:14px; display:none; z-index:99; }
+.over { overflow-x:auto; max-height:520px; }
+.prog { height:8px; background:#eef2ff; border-radius:6px; overflow:hidden; }
+.prog > div { height:100%; background:#2563eb; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>📊 Dashboard — Kiểm tồn &amp; Hạn sử dụng</h1>
+  <p id="sub">Đang tải...</p>
+</div>
+
+<div class="tabs">
+  <div class="tab on" data-t="tienDo">Tiến độ</div>
+  <div class="tab" data-t="dot">Đợt rà soát</div>
+  <div class="tab" data-t="upload">Upload dữ liệu</div>
+  <div class="tab" data-t="canhbao">Cảnh báo</div>
+  <div class="tab" data-t="caidat">Cài đặt</div>
+</div>
+
+<div class="wrap">
+  <!-- Tiến độ -->
+  <div id="tienDo">
+    <div class="card">
+      <div class="row">
+        <div><label>Đợt rà soát</label><select id="dotFilter"></select></div>
+        <div><label>Tìm kiếm (Mã CH / QLKV / GĐV)</label><input id="search" placeholder="gõ để lọc..."></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="kpi" id="kpi"></div>
+    </div>
+    <div class="card">
+      <h2>Tiến độ theo cửa hàng</h2>
+      <div class="over"><table id="tblTienDo"></table></div>
+    </div>
+  </div>
+
+  <!-- Đợt -->
+  <div id="dot" class="hidden">
+    <div class="card">
+      <h2>Tạo đợt rà soát mới</h2>
+      <div class="row">
+        <div><label>Tên đợt</label><input id="newDotTen" placeholder="VD: Kiểm tồn tháng 11/2026"></div>
+        <div><label>&nbsp;</label><label style="font-size:13px"><input type="checkbox" id="newDotActive" style="width:auto"> Đặt làm đợt active</label></div>
+      </div>
+      <button class="btn" id="btnAddDot">＋ Tạo đợt</button>
+    </div>
+    <div class="card">
+      <h2>Danh sách đợt</h2>
+      <div class="over"><table id="tblDot"></table></div>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div id="upload" class="hidden">
+    <div class="card">
+      <h2>Upload dữ liệu kiểm tồn</h2>
+      <label>Đợt áp dụng</label>
+      <select id="uploadDot"></select>
+      <label>Dán dữ liệu (phân cách TAB hoặc dấu phẩy)</label>
+      <textarea id="uploadText" placeholder="MaCH&#9;MaHang&#9;TenHang&#9;DVT&#9;SL_DuKien"></textarea>
+      <div class="hint">Cột theo thứ tự: Mã CH (Mã SAP), Mã hàng, Tên hàng, ĐVT, SL dự kiến — Tên CH, GĐV, QLKV, Tỉnh, Toạ độ tự lấy từ Storelist.</div>
+      <button class="btn green" id="btnUpload">📤 Upload (thay thế dữ liệu đợt này)</button>
+    </div>
+    <div class="card">
+      <h2>Dữ liệu hiện có</h2>
+      <div class="over"><table id="tblUpload"></table></div>
+    </div>
+  </div>
+
+  <!-- Cảnh báo -->
+  <div id="canhbao" class="hidden">
+    <div class="card">
+      <h2>Khai báo có cảnh báo bất thường</h2>
+      <div class="over"><table id="tblWarn"></table></div>
+    </div>
+  </div>
+
+  <!-- Cài đặt -->
+  <div id="caidat" class="hidden">
+    <div class="card">
+      <h2>Ngưỡng cảnh báo</h2>
+      <div class="row">
+        <div><label>Khoảng cách GPS cảnh báo (mét)</label><input id="c_gps_kc_max" type="number"></div>
+        <div><label>SL lệch quá (%)</label><input id="c_sl_lech_pct" type="number"></div>
+        <div><label>Cận hạn (dưới X ngày)</label><input id="c_canhan_ngay" type="number"></div>
+      </div>
+      <div class="row">
+        <div><label>Hết hạn quá lâu (quá X ngày)</label><input id="c_hethan_lau_ngay" type="number"></div>
+        <div><label>Hạn còn lại quá xa (quá X ngày)</label><input id="c_han_qua_xa_ngay" type="number"></div>
+        <div><label>SL = 0 cảnh báo</label><label style="font-size:13px"><input type="checkbox" id="c_sl_bang_0" style="width:auto"> Bật</label></div>
+      </div>
+      <button class="btn" id="btnSaveSetting">💾 Lưu cài đặt</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxM-yFzIPsW-HG3RY5VRICeE04XVLMxZ8RBFYUs_lQqTF2NkDqUrzPmRGOjVIe6UIrbOQ/exec';
+let DATA = null; // {dots, dulieu, khaibao, caidat}
+
+const $ = id => document.getElementById(id);
+function fmt(n){ return (n==null||isNaN(n))?'':Number(n); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(m, err){ const t=$('toast'); t.textContent=m; t.style.background=err?'#cf1322':'#1e8e3e'; t.style.display='block'; setTimeout(()=>t.style.display='none',3000); }
+
+async function load(){
+  try {
+    const r = await fetch(GAS_URL + '?action=data', {cache:'no-store'});
+    DATA = await r.json();
+    if(!DATA.ok) throw new Error(DATA.error);
+    $('sub').textContent = 'Đợt: ' + (DATA.activeDot || '—') + ' · ' + (DATA.dulieu||[]).length + ' dòng DL · ' + (DATA.khaibao||[]).length + ' khai báo';
+    fillDotSelects();
+    renderAll();
+  } catch(e){ $('sub').textContent = 'Lỗi: ' + String(e); }
+}
+
+function activeDotId(){
+  const d = (DATA.dots||[]).find(x => String(x.Active)==='1');
+  return d ? String(d.ID) : ((DATA.dots||[]).length ? String(DATA.dots[0].ID) : '');
+}
+
+function fillDotSelects(){
+  const opts = (DATA.dots||[]).map(d => `<option value="${esc(d.ID)}" ${String(d.ID)===activeDotId()?'selected':''}>${esc(d.TenDot||d.ID)}</option>`).join('');
+  $('dotFilter').innerHTML = opts;
+  $('uploadDot').innerHTML = opts;
+}
+
+function renderAll(){
+  renderTienDo();
+  renderDot();
+  renderUpload();
+  renderWarn();
+  renderCaidat();
+}
+
+// ---------- Tiến độ ----------
+function renderTienDo(){
+  const dot = $('dotFilter').value;
+  const q = $('search').value.toLowerCase();
+  const dl = (DATA.dulieu||[]).filter(r => String(r.DotID)===dot);
+  const kb = (DATA.khaibao||[]).filter(r => String(r.DotID)===dot);
+
+  // group theo CH + mã hàng
+  const chMap = {};
+  dl.forEach(r => {
+    const k = r.MaCH;
+    if(!chMap[k]) chMap[k] = { MaCH:k, TenCH:r.TenCH, GDV:r.GDV, QLKV:r.QLKV, Tinh:r.Tinh, items:[], dong:0 };
+    chMap[k].items.push(r);
+    chMap[k].dong++;
+  });
+
+  // đánh dấu đã khai báo
+  kb.forEach(r => {
+    const c = chMap[r.MaCH];
+    if(c) c.done = (c.done||0)+1;
+  });
+
+  let list = Object.values(chMap);
+  const totCH = list.length;
+  const doneCH = list.filter(c => c.done).length;
+  const dongKb = kb.length, dongDl = dl.length;
+
+  if(q){
+    list = list.filter(c => String(c.MaCH+' '+c.QLKV+' '+c.GDV+' '+c.Tinh).toLowerCase().includes(q));
+  }
+
+  $('kpi').innerHTML = `
+    <div class="b"><div class="v">${totCH}</div><div class="l">Cửa hàng</div></div>
+    <div class="b"><div class="v">${doneCH}</div><div class="l">Đã khai báo</div></div>
+    <div class="b"><div class="v">${totCH-doneCH}</div><div class="l">Chưa khai báo</div></div>
+    <div class="b"><div class="v">${totCH?Math.round(doneCH/totCH*100):0}%</div><div class="l">Tỷ lệ</div></div>
+    <div class="b"><div class="v">${dongKb}</div><div class="l">Dòng khai báo</div></div>
+  `;
+
+  const rows = list.map(c => {
+    const pct = c.done ? (c.done / c.dong * 100) : 0;
+    return `<tr>
+      <td>${esc(c.MaCH)}<br><span style="color:#888;font-size:11px">${esc(c.TenCH||'')}</span></td>
+      <td>${esc(c.GDV||'')}</td><td>${esc(c.QLKV||'')}</td><td>${esc(c.Tinh||'')}</td>
+      <td>${c.dong}</td>
+      <td>${c.done? '<span class="tag act">Đã làm</span>':'<span class="tag err">Chưa</span>'}</td>
+      <td style="min-width:120px"><div class="prog"><div style="width:${pct}%"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  $('tblTienDo').innerHTML = `<thead><tr><th>CH</th><th>GĐV</th><th>QLKV</th><th>Tỉnh</th><th>Dòng</th><th>TT</th><th>Tiến độ</th></tr></thead><tbody>${rows||'<tr><td colspan="7">Chưa có dữ liệu</td></tr>'}</tbody>`;
+}
+
+// ---------- Đợt ----------
+function renderDot(){
+  const rows = (DATA.dots||[]).map(d => `<tr>
+    <td>${esc(d.ID)}</td><td>${esc(d.TenDot||'')}</td><td>${esc(d.NgayTao||'')}</td>
+    <td>${String(d.Active)==='1'?'<span class="tag act">Active</span>':'<button class="btn sm ghost" onclick="setActive(\'${esc(d.ID)}\')">Đặt active</button>'}</td>
+    <td><span class="tag">${((DATA.dulieu||[]).filter(r=>String(r.DotID)===String(d.ID))).length} dòng DL</span></td>
+  </tr>`).join('');
+  $('tblDot').innerHTML = `<thead><tr><th>ID</th><th>Tên đợt</th><th>Ngày tạo</th><th>Trạng thái</th><th>Dữ liệu</th></tr></thead><tbody>${rows||'<tr><td colspan="5">Chưa có đợt</td></tr>'}</tbody>`;
+}
+
+async function setActive(id){
+  await post({action:'setActiveDot', id});
+  await load();
+}
+
+async function addDot(){
+  const ten = $('newDotTen').value.trim();
+  if(!ten){ toast('Nhập tên đợt', true); return; }
+  const active = $('newDotActive').checked;
+  await post({action:'addDot', ten, active});
+  $('newDotTen').value=''; $('newDotActive').checked=false;
+  toast('✅ Đã tạo đợt');
+  await load();
+}
+
+// ---------- Upload ----------
+function renderUpload(){
+  const dot = $('uploadDot').value;
+  const dl = (DATA.dulieu||[]).filter(r => String(r.DotID)===dot);
+  const rows = dl.slice(0,200).map(r => `<tr>
+    <td>${esc(r.MaCH)}</td><td>${esc(r.TenCH)}</td><td>${esc(r.MaHang)}</td><td>${esc(r.TenHang)}</td>
+    <td>${esc(r.DVT)}</td><td>${esc(r.SL_DuKien)}</td><td>${esc(r.GDV)}</td><td>${esc(r.QLKV)}</td><td>${esc(r.Tinh)}</td></tr>`).join('');
+  $('tblUpload').innerHTML = `<thead><tr><th>Mã CH</th><th>Tên</th><th>Mã hàng</th><th>Tên hàng</th><th>ĐVT</th><th>SL DK</th><th>GĐV</th><th>QLKV</th><th>Tỉnh</th></tr></thead><tbody>${rows||'<tr><td colspan="9">Chưa có dữ liệu</td></tr>'}</tbody>`;
+}
+
+async function doUpload(){
+  const dot = $('uploadDot').value;
+  const text = $('uploadText').value.trim();
+  if(!text){ toast('Dán dữ liệu trước', true); return; }
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const sep = text.includes('\t') ? '\t' : ',';
+  const dulieu = [];
+  for(const ln of lines){
+    const c = ln.split(sep).map(x=>x.trim());
+    if(c.length < 3) continue;
+    dulieu.push({ MaCH:c[0], MaHang:c[1], TenHang:c[2]||'', DVT:c[3]||'', SL_DuKien:c[4]||'' });
+  }
+  if(!dulieu.length){ toast('Không parse được dòng nào', true); return; }
+  if(!confirm('Upload ' + dulieu.length + ' dòng, thay thế dữ liệu đợt ' + dot + '?')) return;
+  const res = await post({action:'uploadDulieu', dot, dulieu});
+  if(res.ok){ toast('✅ Đã upload ' + dulieu.length + ' dòng'); $('uploadText').value=''; await load(); }
+  else toast('❌ ' + (res.error||''), true);
+}
+
+// ---------- Cảnh báo ----------
+function renderWarn(){
+  const kb = DATA.khaibao||[];
+  const warns = kb.filter(r => String(r.CanhBao).trim());
+  const rows = warns.map(r => `<tr>
+    <td>${esc(r.DotID)}</td><td>${esc(r.MaCH)}</td><td>${esc(r.MaHang)}</td>
+    <td>${esc(r.SL_Lo)}</td><td>${esc(r.HSD)}</td><td>${esc(r.NgayKhaiBao)}</td>
+    <td><span class="tag warn">${esc(r.CanhBao)}</span></td></tr>`).join('');
+  $('tblWarn').innerHTML = `<thead><tr><th>Đợt</th><th>CH</th><th>Mã hàng</th><th>SL</th><th>HSD</th><th>Khai báo</th><th>Cảnh báo</th></tr></thead><tbody>${rows||'<tr><td colspan="7">Không có cảnh báo</td></tr>'}</tbody>`;
+}
+
+// ---------- Cài đặt ----------
+function renderCaidat(){
+  const c = DATA.caidat || {};
+  $('c_gps_kc_max').value = c.gps_kc_max||'';
+  $('c_sl_lech_pct').value = c.sl_lech_pct||'';
+  $('c_canhan_ngay').value = c.canhan_ngay||'';
+  $('c_hethan_lau_ngay').value = c.hethan_lau_ngay||'';
+  $('c_han_qua_xa_ngay').value = c.han_qua_xa_ngay||'';
+  $('c_sl_bang_0').checked = (c.sl_bang_0 === 'on');
+}
+
+async function saveSetting(){
+  const caidat = {
+    gps_kc_max: $('c_gps_kc_max').value,
+    sl_lech_pct: $('c_sl_lech_pct').value,
+    canhan_ngay: $('c_canhan_ngay').value,
+    hethan_lau_ngay: $('c_hethan_lau_ngay').value,
+    han_qua_xa_ngay: $('c_han_qua_xa_ngay').value,
+    sl_bang_0: $('c_sl_bang_0').checked ? 'on' : 'off'
+  };
+  const res = await post({action:'saveSettings', caidat});
+  if(res.ok){ toast('✅ Đã lưu cài đặt'); await load(); }
+  else toast('❌ '+(res.error||''), true);
+}
+
+async function post(body){
+  const r = await fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(body) });
+  return r.json();
+}
+
+// events
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  ['tienDo','dot','upload','canhbao','caidat'].forEach(id => $(id).classList.add('hidden'));
+  $(t.dataset.t).classList.remove('hidden');
+}));
+$('dotFilter').addEventListener('change', renderTienDo);
+$('search').addEventListener('input', renderTienDo);
+$('uploadDot').addEventListener('change', renderUpload);
+$('btnAddDot').addEventListener('click', addDot);
+$('btnUpload').addEventListener('click', doUpload);
+$('btnSaveSetting').addEventListener('click', saveSetting);
+load();
+</script>
+</body>
+</html>
