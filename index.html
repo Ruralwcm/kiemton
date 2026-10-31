@@ -131,6 +131,10 @@ input:focus,select:focus{border-color:var(--navy);background:#fff}
 /* Footer */
 .foot{text-align:center;color:var(--mut);font-size:11.5px;margin-top:20px;margin-bottom:60px}
 .foot a{color:var(--navy);font-weight:600;text-decoration:none}
+
+/* Cascade selects */
+.cascade{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.cascade select{flex:1;min-width:110px;font-size:12px;padding:6px 5px}
 </style>
 </head>
 <body>
@@ -153,8 +157,13 @@ input:focus,select:focus{border-color:var(--navy);background:#fff}
     <h2><span class="dot"></span>1. Chọn cửa hàng</h2>
     <label>Đợt rà soát</label>
     <select id="selDot"></select>
-    <label>Cửa hàng</label>
-    <select id="selCh"></select>
+    <label>Miền → GĐV → QLKV → CH</label>
+    <div class="cascade">
+      <select id="selMien"><option value="">Miền</option></select>
+      <select id="selGDV"><option value="">GĐV</option></select>
+      <select id="selQLKV"><option value="">QLKV</option></select>
+      <select id="selCh"><option value="">CH</option></select>
+    </div>
     
   </div>
 
@@ -186,11 +195,12 @@ input:focus,select:focus{border-color:var(--navy);background:#fff}
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxM-yFzIPsW-HG3RY5VRICeE04XVLMxZ8RBFYUs_lQqTF2NkDqUrzPmRGOjVIe6UIrbOQ/exec';
 
-let DOTS = [], DULIEU = [], CAIDAT = {};
+let DOTS = [], DULIEU = [], CAIDAT = {}, storelistMap = {};
 let chInfo = null;
 let curDotId = '';
 let myKhaiBao = [];
 let doneChSet = new Set();
+let cascadeCHs = []; // [{sap,TenCH,Mien,GDV,QLKV}]
 
 const $ = id => document.getElementById(id);
 
@@ -209,6 +219,7 @@ function daysFromToday(d) {
 
 async function load() {
   try {
+    storelistMap = await loadStorelist();
     const r = await fetch(GAS_URL + '?action=formdata', {cache:'no-store'});
     const j = await r.json();
     if (!j.ok) throw new Error(j.error||'Lỗi tải');
@@ -224,6 +235,34 @@ async function load() {
   }
 }
 
+// Load storelist từ Google Sheets (gviz) để lấy Miền
+async function loadStorelist() {
+  const map = {};
+  try {
+    const url = 'https://docs.google.com/spreadsheets/d/1UMtB9MOxGOaZvxN5VAUGAS1bPaAL2tVVFEViGANd4Tk/gviz/tq?tqx=out:json&sheet=Store_list&headers=1';
+    const r = await fetch(url);
+    const text = await r.text();
+    const json = JSON.parse(text.replace(/^.*?setResponse\(/, '').replace(/\);?\s*$/, ''));
+    const header = json.table.cols.map(c => (c.label || '').trim());
+    const idx = name => header.findIndex(h => h && h.includes(name));
+    const iSap = idx('SAP'), iTen = idx('Tên'), iTT = idx('Tình Trạng');
+    const iMien = idx('Miền'), iGDV = idx('GĐV'), iQLKV = idx('QLKV');
+    for (const row of json.table.rows) {
+      const cells = row.c;
+      const sap = String(cells[iSap]?.v || '').trim();
+      if (!sap) continue;
+      if (iTT >= 0 && String(cells[iTT]?.v || '').trim() !== 'Đang hoạt động') continue;
+      map[sap] = {
+        TenCH: iTen >= 0 ? String(cells[iTen]?.v || '').trim() : '',
+        Mien: iMien >= 0 ? String(cells[iMien]?.v || '').trim() : '',
+        GDV: iGDV >= 0 ? String(cells[iGDV]?.v || '').trim() : '',
+        QLKV: iQLKV >= 0 ? String(cells[iQLKV]?.v || '').trim() : ''
+      };
+    }
+  } catch(e) { /* fallback: use DULIEU only */ }
+  return map;
+}
+
 async function loadDots() {
   try {
     const r = await fetch(GAS_URL + '?action=data', {cache:'no-store'});
@@ -234,7 +273,7 @@ async function loadDots() {
 
 function render() {
   $('sub').textContent = 'Đợt: ' + (curDotId||'chưa có') + ' · ' + DULIEU.length + ' dòng DL';
-  $('vb').textContent = 'v1.0 · ' + String(DOTS.length||0) + ' đợt';
+  $('vb').textContent = 'v1.1 · ' + String(DOTS.length||0) + ' đợt';
   const sel = $('selDot');
   sel.innerHTML = '';
   DOTS.forEach(d => {
@@ -244,33 +283,76 @@ function render() {
     if (String(d.ID)===curDotId) o.selected = true;
     sel.appendChild(o);
   });
-  sel.onchange = () => { curDotId = sel.value; fillCH(sel.value); };
-  fillCH(curDotId);
+  sel.onchange = () => { curDotId = sel.value; buildCascade(); };
+  buildCascade();
 }
 
-function fillCH(dotId) {
-  const list = DULIEU.filter(r => String(r.DotID)===dotId);
-  const map = {};
-  list.forEach(r => { map[String(r.MaCH)] = r; });
-  const sel = $('selCh');
-  sel.innerHTML = '';
-  if (!Object.keys(map).length) {
-    sel.innerHTML = '<option value="">— chưa có dữ liệu đợt này —</option>';
-    chInfo = null; $('cardProd').style.display = 'none'; return;
+function buildCascade() {
+  // Get unique CHs for current batch, enrich with storelist data
+  const seen = new Set();
+  cascadeCHs = [];
+  for (const r of DULIEU) {
+    if (String(r.DotID) !== curDotId) continue;
+    const sap = String(r.MaCH);
+    if (seen.has(sap)) continue;
+    seen.add(sap);
+    const sl = storelistMap[sap] || {};
+    cascadeCHs.push({
+      sap,
+      TenCH: sl.TenCH || r.TenCH || '',
+      Mien: sl.Mien || '',
+      GDV: sl.GDV || r.GDV || '',
+      QLKV: sl.QLKV || r.QLKV || ''
+    });
   }
-  Object.values(map).forEach(c => {
-    const o = document.createElement('option');
-    o.value = String(c.MaCH);
-    o.textContent = (c.MaCH||'') + ' — ' + (c.TenCH||'');
-    sel.appendChild(o);
-  });
-  sel.onchange = () => onSelectCH(sel.value);
-  onSelectCH(sel.value);
+  // Populate Miền dropdown
+  const miens = [...new Set(cascadeCHs.map(c => c.Mien).filter(Boolean))].sort();
+  fillSelect($('selMien'), miens, 'Miền');
+  clearSelect($('selGDV'), 'GĐV');
+  clearSelect($('selQLKV'), 'QLKV');
+  clearSelect($('selCh'), 'CH');
+  $('cardProd').style.display = 'none';
+  chInfo = null;
+
+  $('selMien').onchange = function() {
+    const m = this.value;
+    const gdvs = [...new Set(cascadeCHs.filter(c => c.Mien === m).map(c => c.GDV).filter(Boolean))].sort();
+    fillSelect($('selGDV'), gdvs, 'GĐV');
+    clearSelect($('selQLKV'), 'QLKV');
+    clearSelect($('selCh'), 'CH');
+    $('cardProd').style.display = 'none';
+  };
+  $('selGDV').onchange = function() {
+    const m = $('selMien').value, g = this.value;
+    const qlkvs = [...new Set(cascadeCHs.filter(c => c.Mien === m && c.GDV === g).map(c => c.QLKV).filter(Boolean))].sort();
+    fillSelect($('selQLKV'), qlkvs, 'QLKV');
+    clearSelect($('selCh'), 'CH');
+    $('cardProd').style.display = 'none';
+  };
+  $('selQLKV').onchange = function() {
+    const m = $('selMien').value, g = $('selGDV').value, q = this.value;
+    const chs = cascadeCHs.filter(c => c.Mien === m && c.GDV === g && c.QLKV === q);
+    fillSelect($('selCh'), chs.map(c => c.sap + ' — ' + c.TenCH), 'CH');
+    $('cardProd').style.display = 'none';
+  };
+  $('selCh').onchange = function() {
+    const v = this.value;
+    if (!v || v === 'CH') { chInfo = null; $('cardProd').style.display = 'none'; return; }
+    const sap = v.split(' — ')[0];
+    chInfo = DULIEU.find(r => String(r.MaCH) === sap && String(r.DotID) === curDotId) || null;
+    renderProducts();
+  };
+
+  // Nếu chỉ có 1 Miền → auto-select
+  if (miens.length === 1) { $('selMien').value = miens[0]; $('selMien').onchange(); }
 }
 
-function onSelectCH(ma) {
-  chInfo = DULIEU.find(r => String(r.MaCH)===String(ma))||null;
-  renderProducts();
+function fillSelect(sel, values, placeholder) {
+  sel.innerHTML = '<option value="">' + placeholder + '</option>';
+  values.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+}
+function clearSelect(sel, placeholder) {
+  sel.innerHTML = '<option value="">— ' + placeholder + ' —</option>';
 }
 
 function renderProducts() {
